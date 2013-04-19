@@ -14,7 +14,7 @@ var browserify = require('browserify');
 module.exports = function (grunt) {
   grunt.registerMultiTask('browserify', 'Grunt task for browserify.', function () {
     var done = this.async();
-    var options = this.options();
+    var options = grunt.util._.extend(this.options(), this.data);
 
     var files = grunt.file.expandMapping(options.src, options.dest, {cwd: process.cwd()}).map(function (file) {
       return path.resolve(file.src[0]);
@@ -65,8 +65,7 @@ module.exports = function (grunt) {
       options.beforeHook.call(this, b);
     }
 
-    var opts = grunt.util._.extend(this.data.options, {});
-    var bundle = b.bundle(opts);
+    var bundle = b.bundle(options);
     bundle.on('error', function (err) {
       grunt.fail.warn(err);
     });
