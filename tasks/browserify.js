@@ -10,6 +10,7 @@ var path = require('path');
  * Licensed under the MIT license.
  */
 var browserify = require('browserify');
+var shim = require('browserify-shim');
 
 module.exports = function (grunt) {
   grunt.registerMultiTask('browserify', 'Grunt task for browserify.', function () {
@@ -24,6 +25,15 @@ module.exports = function (grunt) {
     b.on('error', function (err) {
       grunt.fail.warn(err);
     });
+
+    if (options.shim) {
+      Object.keys(options.shim)
+        .forEach(function(alias) {
+          var shim = options.shim[alias];
+          shim.path = path.resolve(shim.path);
+        });
+      b = shim(b, options.shim);
+    }
 
     if (options.ignore) {
       grunt.file.expand({filter: 'isFile'}, options.ignore)
@@ -59,10 +69,6 @@ module.exports = function (grunt) {
       options.transform.forEach(function (transform) {
         b.transform(transform);
       });
-    }
-
-    if (options.beforeHook) {
-      options.beforeHook.call(this, b);
     }
 
     var bundle = b.bundle(options);
