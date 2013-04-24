@@ -15,10 +15,11 @@ var shim = require('browserify-shim');
 module.exports = function (grunt) {
   grunt.registerMultiTask('browserify', 'Grunt task for browserify.', function () {
     var done = this.async();
-    var options = grunt.util._.extend(this.options(), this.data);
+    var opts = this.options();
 
-    var files = grunt.file.expandMapping(options.src, options.dest, {cwd: process.cwd()}).map(function (file) {
-      return path.resolve(file.src[0]);
+    if (opts.entry.split) opts.entry = [opts.entry];
+    var files = opts.entry.map(function (file) {
+      return path.resolve(file);
     });
 
     var b = browserify(files);
@@ -26,25 +27,24 @@ module.exports = function (grunt) {
       grunt.fail.warn(err);
     });
 
-    if (options.shim) {
-      Object.keys(options.shim)
+    if (opts.shim) {
+      Object.keys(opts.shim)
         .forEach(function(alias) {
-          var shim = options.shim[alias];
+          var shim = opts.shim[alias];
           shim.path = path.resolve(shim.path);
         });
-      b = shim(b, options.shim);
+      b = shim(b, opts.shim);
     }
 
-    if (options.ignore) {
-      grunt.file.expand({filter: 'isFile'}, options.ignore)
+    if (opts.ignore) {
+      grunt.file.expand({filter: 'isFile'}, opts.ignore)
         .forEach(function (file) {
-
           b.ignore(path.resolve(file));
         });
     }
 
-    if (options.alias) {
-      var aliases = options.alias;
+    if (opts.alias) {
+      var aliases = opts.alias;
       if (aliases.split) {
         aliases = aliases.split(',');
       }
@@ -54,35 +54,37 @@ module.exports = function (grunt) {
           .forEach(function (file) {
             b.require(path.resolve(file), {expose: alias[1]});
           });
-
       });
     }
 
-    if (options.external) {
-      grunt.file.expand({filter: 'isFile'}, options.external)
+    if (opts.external) {
+      grunt.file.expand({filter: 'isFile'}, opts.external)
         .forEach(function (file) {
           b.external(path.resolve(file));
         });
     }
 
-    if (options.transform) {
-      options.transform.forEach(function (transform) {
+    if (opts.transform) {
+      opts.transform.forEach(function (transform) {
         b.transform(transform);
       });
     }
 
-    var bundle = b.bundle(options);
+    var bundle = b.bundle(opts);
     bundle.on('error', function (err) {
       grunt.fail.warn(err);
     });
 
-    var destPath = path.dirname(path.resolve(options.dest));
+    var destPath = path.dirname(path.resolve(opts.outfile));
     if (!fs.existsSync(destPath)) {
       fs.mkdirSync(destPath);
     }
 
     bundle
-      .pipe(fs.createWriteStream(options.dest))
-      .on('finish', done);
+      .pipe(fs.createWriteStream(opts.outfile))
+      .on('finish', function () {
+        grunt.log.writeln('Bundle ' + opts.outfile.cyan + ' created.');
+        done();
+      });
   });
 };
