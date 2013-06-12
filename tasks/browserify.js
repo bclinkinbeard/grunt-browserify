@@ -2,6 +2,7 @@
 
 var fs = require('fs');
 var path = require('path');
+
 /*
  * grunt-browserify
  * https://github.com/jmreidy/grunt-browserify
@@ -14,77 +15,92 @@ var shim = require('browserify-shim');
 
 module.exports = function (grunt) {
   grunt.registerMultiTask('browserify', 'Grunt task for browserify.', function () {
-    var done = this.async();
     var opts = this.options();
 
-    if (opts.entry.split) opts.entry = [opts.entry];
-    var files = opts.entry.map(function (file) {
-      return path.resolve(file);
-    });
+    grunt.util.async.forEachSeries(this.files, function (file, next) {
 
-    var b = browserify(files);
-    b.on('error', function (err) {
-      grunt.fail.warn(err);
-    });
+      var files = grunt.file.expand({filter: 'isFile'}, file.src).map(function (f) {
+        return path.resolve(f);
+      });
 
-    if (opts.shim) {
-      Object.keys(opts.shim)
-        .forEach(function(alias) {
-          var shim = opts.shim[alias];
-          shim.path = path.resolve(shim.path);
-        });
-      b = shim(b, opts.shim);
-    }
+      var b = browserify(files);
+      b.on('error', function (err) {
+        grunt.fail.warn(err);
+      });
 
-    if (opts.ignore) {
-      grunt.file.expand({filter: 'isFile'}, opts.ignore)
-        .forEach(function (file) {
-          b.ignore(path.resolve(file));
-        });
-    }
-
-    if (opts.alias) {
-      var aliases = opts.alias;
-      if (aliases.split) {
-        aliases = aliases.split(',');
-      }
-      aliases.forEach(function (alias) {
-        alias = alias.split(':');
-        grunt.file.expand({filter: 'isFile'}, alias[0])
+      if (opts.ignore) {
+        grunt.file.expand({filter: 'isFile'}, opts.ignore)
           .forEach(function (file) {
-            b.require(path.resolve(file), {expose: alias[1]});
+
+            b.ignore(path.resolve(file));
           });
-      });
-    }
+      }
 
-    if (opts.external) {
-      grunt.file.expand({filter: 'isFile'}, opts.external)
-        .forEach(function (file) {
-          b.external(path.resolve(file));
+      if (opts.alias) {
+        var aliases = opts.alias;
+        if (aliases.split) {
+          aliases = aliases.split(',');
+        }
+        aliases.forEach(function (alias) {
+          alias = alias.split(':');
+          grunt.file.expand({filter: 'isFile'}, alias[0])
+            .forEach(function (file) {
+              b.require(path.resolve(file), {expose: alias[1]});
+            });
+
         });
-    }
+      }
 
-    if (opts.transform) {
-      opts.transform.forEach(function (transform) {
-        b.transform(transform);
+      if (opts.shim) {
+        var shims = opts.shim;
+        Object.keys(opts.shim)
+          .forEach(function (alias) {
+            shims[alias].path = path.resolve(shims[alias].path);
+          });
+        b = shim(b, shims);
+      }
+
+      if (opts.external) {
+        grunt.file.expand({filter: 'isFile'}, opts.external)
+          .forEach(function (file) {
+            b.external(path.resolve(file));
+          });
+      }
+
+      if (opts.externalize) {
+        opts.externalize.forEach(function (lib) {
+          if (/\//.test(lib)) {
+            grunt.file.expand({filter: 'isFile'}, lib).forEach(function (file) {
+              b.require(path.resolve(file));
+            });
+          }
+          else {
+            b.require(lib);
+          }
+        });
+      }
+
+      if (opts.transform) {
+        opts.transform.forEach(function (transform) {
+          b.transform(transform);
+        });
+      }
+
+      var destPath = path.dirname(path.resolve(file.dest));
+      if (!grunt.file.exists(destPath)) {
+        grunt.file.mkdir(destPath);
+      }
+
+      b.bundle(opts, function (err, src) {
+        if (err) {
+          grunt.fail.warn(err);
+        }
+
+        grunt.file.write(file.dest, src);
+        grunt.log.ok('Bundled ' + file.dest);
+        next();
       });
-    }
 
-    var bundle = b.bundle(opts);
-    bundle.on('error', function (err) {
-      grunt.fail.warn(err);
-    });
-
-    var destPath = path.dirname(path.resolve(opts.outfile));
-    if (!fs.existsSync(destPath)) {
-      fs.mkdirSync(destPath);
-    }
-
-    bundle
-      .pipe(fs.createWriteStream(opts.outfile))
-      .on('finish', function () {
-        grunt.log.writeln('Bundle ' + opts.outfile.cyan + ' created.');
-        done();
-      });
+    }, this.async());
   });
 };
