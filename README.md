@@ -24,6 +24,14 @@ grunt.loadNpmTasks('grunt-browserify');
 Run this task with the `grunt browserify` command. As with other Grunt plugins, the `src` and `dest` properties are most important: `src` will use the Grunt glob pattern to specify files for inclusion in the browserified package, and `dest` will specify the outfile for the compiled module.
 
 ### Options
+
+#### noParse
+Type: `[String]`
+
+Array of file paths that Browserify should not attempt to parse for `require()` statements. Will significantly
+increase build times for projects that reference large libraries like jQuery or Angular. All shimmed paths (see
+below) will be added to `noParse` by default.
+
 #### ignore
 Type: `[String]`
 
@@ -127,6 +135,10 @@ In lieu of a formal styleguide, take care to maintain the existing coding style.
 
 ### v1.0.5
   - Bumping to latest Browserify (2.18.x)
+
+### v1.1.0
+  - Added support for noParse option
+  - Change browserify() call to pass files as opts.entries
 
 ## Frequent Contributors
   - Ben Clinkinbeard ([@bclinkinbeard](https://github.com/bclinkinbeard))
